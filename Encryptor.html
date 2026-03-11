@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Terminal V2</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --panel-color: #1e1e1e;
+            --text-color: #cfcfcf;
+            --accent-color: #00ff41; /* Classic Terminal Green */
+            --accent-dim: #008f11;
+            --error-color: #ff3333;
+            --border-color: #333;
+            --font-stack: 'Courier New', Courier, monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: var(--font-stack);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            background-color: var(--panel-color);
+            width: 100%;
+            max-width: 900px;
+            border: 2px solid var(--border-color);
+            padding: 40px;
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.1); /* Subtle green glow */
+        }
+
+        header {
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            color: var(--accent-color);
+            text-shadow: 0 0 5px rgba(0, 255, 65, 0.5);
+        }
+
+        .status-badge {
+            font-size: 0.8rem;
+            background: #000;
+            padding: 5px 10px;
+            border: 1px solid var(--border-color);
+            color: var(--accent-color);
+        }
+
+        /* Mode Switcher */
+        .mode-switch {
+            display: flex;
+            margin-bottom: 30px;
+            border: 2px solid var(--border-color);
+        }
+
+        .mode-option {
+            flex: 1;
+            text-align: center;
+            padding: 15px;
+            cursor: pointer;
+            font-weight: bold;
+            background-color: #111;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .mode-option:hover {
+            background-color: #222;
+        }
+
+        .mode-option.active {
+            background-color: var(--accent-color);
+            color: #000;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+        }
+
+        /* Inputs */
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            color: #888;
+            letter-spacing: 1px;
+        }
+
+        input, textarea {
+            background-color: #0a0a0a;
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            padding: 15px;
+            font-family: var(--font-stack);
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        input:focus, textarea:focus {
+            border-color: var(--accent-color);
+            box-shadow: 0 0 8px rgba(0, 255, 65, 0.2);
+        }
+
+        textarea {
+            width: 100%;
+            height: 150px;
+            resize: vertical;
+            white-space: pre-wrap;
+        }
+
+        /* The Big Button */
+        button.action-btn {
+            width: 100%;
+            background-color: var(--accent-color);
+            color: #000;
+            border: none;
+            padding: 20px;
+            font-family: var(--font-stack);
+            font-weight: 900;
+            font-size: 1.2rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            cursor: pointer;
+            margin: 20px 0;
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        button.action-btn:hover {
+            background-color: #33ff66;
+            box-shadow: 0 0 15px rgba(0, 255, 65, 0.6);
+        }
+
+        button.action-btn:active {
+            transform: scale(0.98);
+        }
+
+        /* Output Section */
+        .output-section {
+            border-top: 2px dashed var(--border-color);
+            padding-top: 20px;
+            position: relative;
+        }
+
+        .output-overlay {
+            position: absolute;
+            top: 50px; /* offset for label */
+            left: 0;
+            width: 100%;
+            height: calc(100% - 50px);
+            background: rgba(0,0,0,0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent-color);
+            font-size: 1.5rem;
+            display: none; /* Hidden by default */
+            z-index: 10;
+        }
+
+        /* Utility */
+        .hidden { display: none; }
+        
+        /* Scanline effect for monitor look */
+        body::after {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%);
+            background-size: 100% 4px;
+            z-index: 999;
+            pointer-events: none;
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Cryptographic Engine <span style="font-size:0.5em">v2.0</span></h1>
+        <div class="status-badge" id="systemStatus">IDLE</div>
+    </header>
+
+    <div class="mode-switch">
+        <div class="mode-option active" data-mode="encrypt" onclick="setMode('encrypt')">Encrypt Data</div>
+        <div class="mode-option" data-mode="decrypt" onclick="setMode('decrypt')">Decrypt Data</div>
+    </div>
+
+    <div class="controls">
+        <div class="control-group">
+            <label>Security Password</label>
+            <input type="password" id="password" placeholder="Key Phrase">
+        </div>
+        <div class="control-group">
+            <label>Numerical Seed</label>
+            <input type="number" id="seed" placeholder="Integer (e.g. 8842)">
+        </div>
+    </div>
+
+    <div class="control-group">
+        <label id="inputLabel">Source Data</label>
+        <textarea id="inputText" placeholder="Enter text to process..."></textarea>
+    </div>
+
+    <button class="action-btn" onclick="runSequence()">INITIATE SEQUENCE</button>
+
+    <div class="output-section" id="outputSection">
+        <label id="outputLabel">Result</label>
+        <textarea id="outputText" readonly placeholder="Waiting for sequence..."></textarea>
+        <div class="output-overlay" id="animOverlay">
+            PROCESSING...
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentMode = 'encrypt';
+    
+    // -- UI Functions --
+
+    function setMode(mode) {
+        currentMode = mode;
+        // Visual toggle
+        document.querySelectorAll('.mode-option').forEach(el => el.classList.remove('active'));
+        document.querySelector(`[data-mode="${mode}"]`).classList.add('active');
+
+        // Label updates
+        if (mode === 'encrypt') {
+            document.getElementById('inputLabel').innerText = "PLAINTEXT INPUT";
+            document.getElementById('outputLabel').innerText = "ENCRYPTED CIPHERTEXT (BASE64)";
+            document.querySelector('.action-btn').innerText = "ENCRYPT DATA";
+        } else {
+            document.getElementById('inputLabel').innerText = "ENCRYPTED INPUT";
+            document.getElementById('outputLabel').innerText = "DECRYPTED PLAINTEXT";
+            document.querySelector('.action-btn').innerText = "DECRYPT DATA";
+        }
+    }
+
+    async function runSequence() {
+        const password = document.getElementById('password').value;
+        const seed = document.getElementById('seed').value;
+        const input = document.getElementById('inputText').value;
+        const outputBox = document.getElementById('outputText');
+        const statusBadge = document.getElementById('systemStatus');
+        
+        // 1. Validation
+        if (!password || !seed || !input) {
+            alert("SYSTEM ERROR: Missing Input Parameters.");
+            return;
+        }
+
+        // 2. Scroll to output
+        document.getElementById('outputSection').scrollIntoView({ behavior: 'smooth' });
+
+        // 3. Start Animation
+        statusBadge.innerText = "COMPUTING...";
+        statusBadge.style.color = "yellow";
+        
+        // Disable interaction during process
+        outputBox.value = "";
+        
+        // Run the heavy visual effect
+        await animateProcess(outputBox);
+
+        // 4. Actual Crypto Operation
+        try {
+            let result = "";
+            if (currentMode === 'encrypt') {
+                result = await performEncryption(input, password, seed);
+            } else {
+                result = await performDecryption(input, password, seed);
+            }
+            
+            outputBox.value = result;
+            statusBadge.innerText = "SUCCESS";
+            statusBadge.style.color = "var(--accent-color)";
+            
+        } catch (e) {
+            console.error(e);
+            outputBox.value = "decryption_failure::integrity_check_failed";
+            statusBadge.innerText = "FATAL ERROR";
+            statusBadge.style.color = "red";
+        }
+    }
+
+    // Visual "Hacker" Animation
+    function animateProcess(targetElement) {
+        return new Promise(resolve => {
+            const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+-=[]{}|;':,./<>?";
+            let iterations = 0;
+            const maxIterations = 20; // How long the animation lasts
+            
+            const interval = setInterval(() => {
+                // Generate random garbage text
+                let garbage = "";
+                for(let i=0; i< 100; i++) {
+                    garbage += chars.charAt(Math.floor(Math.random() * chars.length));
+                    if (i % 50 === 0) garbage += "\n";
+                }
+                targetElement.value = garbage;
+                
+                iterations++;
+                if (iterations >= maxIterations) {
+                    clearInterval(interval);
+                    resolve();
+                }
+            }, 50); // Speed of frame update
+        });
+    }
+
+    // -- Crypto Logic (Same robust engine as before) --
+
+    async function deriveKey(password, seed) {
+        const enc = new TextEncoder();
+        const keyMaterial = await window.crypto.subtle.importKey(
+            "raw", enc.encode(password), { name: "PBKDF2" }, false, ["deriveKey"]
+        );
+        const saltBuffer = enc.encode(seed.padEnd(16, '0')); // Ensure salt has length
+        return window.crypto.subtle.deriveKey(
+            { name: "PBKDF2", salt: saltBuffer, iterations: 100000, hash: "SHA-256" },
+            keyMaterial, { name: "AES-GCM", length: 256 }, true, ["encrypt", "decrypt"]
+        );
+    }
+
+    async function performEncryption(plaintext, password, seed) {
+        const enc = new TextEncoder();
+        const key = await deriveKey(password, seed);
+        const iv = window.crypto.getRandomValues(new Uint8Array(12));
+        const encryptedContent = await window.crypto.subtle.encrypt(
+            { name: "AES-GCM", iv: iv }, key, enc.encode(plaintext)
+        );
+        const ivArray = Array.from(iv);
+        const contentArray = Array.from(new Uint8Array(encryptedContent));
+        const package = ivArray.concat(contentArray);
+        return btoa(String.fromCharCode.apply(null, package));
+    }
+
+    async function performDecryption(encryptedBase64, password, seed) {
+        const dec = new TextDecoder();
+        const key = await deriveKey(password, seed);
+        const binaryString = atob(encryptedBase64);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
+        const iv = bytes.slice(0, 12);
+        const data = bytes.slice(12);
+        const decryptedContent = await window.crypto.subtle.decrypt(
+            { name: "AES-GCM", iv: iv }, key, data
+        );
+        return dec.decode(decryptedContent);
+    }
+</script>
+
+</body>
+</html>
